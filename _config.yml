@@ -1,6 +1,6 @@
-title:            Sander Dieleman
+title:            Piyush Bhuwalka
 description:      I write about machine learning, deep learning, music information retrieval, recommender systems, generative models and more.
-disqus_shortname: benanne
+disqus_shortname: 
 reading_time:     true
 words_per_minute: 200
 # Your site's domain goes here (eg: https://mmistakes.github.io, http://yourdomain.com, etc)
@@ -12,11 +12,11 @@ owner:
   name:           Sander Dieleman
   avatar:         avatar.jpg
   bio:            "Research Scientist at DeepMind"
-  email:          sanderdieleman@gmail.com
+  email:          bhuwalkapiyush@gmail.com
   # Social networking links used in footer. Update and remove as you like.
   twitter:        sedielem
   facebook:       
-  github:         benanne
+  github:         PiyushBhuwalka-sopho
   stackexchange:  
   linkedin:       sanderdieleman
   instagram:      
