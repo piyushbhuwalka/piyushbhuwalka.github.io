@@ -9,22 +9,22 @@ url:              https://piyushbhuwalka.github.io
 
 # Owner/author information
 owner:
-  name:           Sander Dieleman
-  avatar:         avatar.jpg
-  bio:            "Research Scientist at DeepMind"
+  name:           Piyush Bhuwalka
+  avatar:         
+  bio:            "Research Scientist at Samsung Research Institute, Bangalore (SRIB)"
   email:          bhuwalkapiyush@gmail.com
   # Social networking links used in footer. Update and remove as you like.
-  twitter:        sedielem
+  twitter:        
   facebook:       
   github:         PiyushBhuwalka-sopho
   stackexchange:  
-  linkedin:       sanderdieleman
+  linkedin:       
   instagram:      
   flickr:         
   tumblr:         
   # google plus id, include the '+', eg +mmistakes
   google_plus:
-  reddit:         benanne
+  reddit:        
   # kaggle:         http://www.kaggle.com/users/41181/sedielem
 
 # Background image to be tiled on all pages
