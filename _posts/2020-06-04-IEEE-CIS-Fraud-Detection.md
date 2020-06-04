@@ -93,19 +93,29 @@ After running some simple exploration scripts, I quickly found out that there ar
 ### Class Distribution is Highly Unbalanced
 
 <figure>
-  <a href="/images/wavenet.gif"><img style="display: block; margin: auto;" src="/images/wavenet.gif" alt="Wavenet sampling procedure."></a>
-  <figcaption>Animation showing sampling from a WaveNet model. The model predicts the distribution of potential signal values for each timestep, given past signal values.</figcaption>
+  <a href="/images/target.png"><img style="display: block; margin: auto;" src="/images/target.png" alt="Target"></a>
+  <figcaption>Figure showing the unbalanced distribution of targets.</figcaption>
 </figure>
 
 ### Different distribution of train and test datasets
 
 Here , I would like to mention some important points. Firstly, based on our experiments we found that there were new users in test dataset (i.e. there were users who did not have a single transaction present in train dataset. Secondly, the transaction dates in train and test datasets were disjoint. We had to predict in the future using the past.
 
+<figure>
+  <a href="/images/date.png"><img style="display: block; margin: auto;" src="/images/date.png" alt="Transaction Date"></a>
+  <figcaption>Figure showing that the Transaction dates in train and test are disjoint.</figcaption>
+</figure>
+
 ## <a name="feature-engineering"></a> Feature Engineering
 
 ### Adversial Validation
 
 This is the most important part of this competition. As I have pointed out earlier that the test dataset contained a lot of new users , so **adversial validation** could be used to find out important features to distinguish users. I will not delve deeper into adversial validation , but the main concept of it is that we mark train data as 1 and test data as 0. Then we train a classifier to distinguish between train and test. The most important features used by the model can be used to distinguish users. Below are the most important features learned during adversial validation.
+
+<figure>
+  <a href="/images/features.png"><img style="display: block; margin: auto;" src="/images/features.png" alt="Features"></a>
+  <figcaption>Figure showing the most important features.</figcaption>
+</figure>
 
 ### Converting 'days from a certain event' to a point in time
 
@@ -121,7 +131,7 @@ In this we sort the data by time. Then we divide it into say 5 parts. During 1st
 
 ### Grouped K-folds
 
-This was the validation strategy we mostly relied on . In this strategy , we grouped on months . Suppose we have months Dec 2012, Jan 2013, Feb 2013 as the only months . So in first fold we trained on Jan and Feb and validated on December. In second fold we trained on Feb and Dec and validated on January and so on . I received a lot of questions as to why I am validation on past using future data. The reason is that distribution of the features are not changing with time. So in a sense there is not any specific trend on time feature. This allowed us to validate effectively using this strategy.
+This was the validation strategy we mostly relied on . In this strategy , we grouped on months . Suppose we have months Dec 2012, Jan 2013, Feb 2013 as the only months . So in first fold we trained on Jan and Feb and validated on December. In second fold we trained on Feb and Dec and validated on January and so on . I received a lot of questions as to why I am validating on past using future data. The reason is that distribution of the features are not changing with time. So in a sense there is not any specific trend on time feature. This allowed us to validate effectively using this strategy.
 
 ## <a name="models"></a> Models
 
