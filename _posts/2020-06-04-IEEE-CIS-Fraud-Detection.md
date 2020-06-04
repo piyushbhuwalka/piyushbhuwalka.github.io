@@ -19,8 +19,8 @@ This blog post is divided into a few different sections. I'll try to motivate wh
 
 * *[Problem Statement](#motivation)*
 * *[Dataset](#dataset)*
-* *[Likelihood-based models of waveforms](#likelihood-based-models)*
-* *[Adversarial models of waveforms](#adversarial-models)*
+* *[Exploration](#exploration)*
+* *[Feature Engineering](#feature-engineering)*
 * *[Discussion](#discussion)*
 * *[Conclusion](#conclusion)*
 * *[References](#references)*
@@ -79,8 +79,6 @@ Variables in this table are identity information – network connection informat
 They're collected by Vesta’s fraud protection system and digital security partners.
 (The field names are masked and pairwise dictionary will not be provided for privacy protection and contract agreement)
 
-* DeviceInfo : https://www.kaggle.com/c/ieee-fraud-detection/discussion/101203#583227
-
 “id01 to id11 are numerical features for identity, which is collected by Vesta and security partners such as device rating, ip_domain rating, proxy rating, etc. Also it recorded behavioral fingerprint like account login times/failed to login times, how long an account stayed on the page, etc. All of these are not able to elaborate due to security partner T&C. I hope you could get basic meaning of these features, and by mentioning them as numerical/categorical, you won't deal with them inappropriately.”
 
 **Labeling logic 
@@ -100,91 +98,11 @@ After running some simple exploration scripts, I quickly found out that there ar
   <figcaption>Animation showing sampling from a WaveNet model. The model predicts the distribution of potential signal values for each timestep, given past signal values.</figcaption>
 </figure>
 
-WaveNet[^wavenet] and SampleRNN[^samplernn] are **autoregressive models of raw waveforms**. While WaveNet is a convolutional neural network, SampleRNN uses a stack of recurrent neural networks. Both papers appeared on arXiv in late 2016 with only a few months in between, signalling that autoregressive waveform-based audio modelling was an idea whose time had come. Before then, this idea had not been seriously considered, as modelling long-term correlations in sequences across thousands of timesteps did not seem feasible with the tools that were available at that point. Furthermore, discriminative models of audio all used spectral input representations, with only a few works investigating the use of raw waveforms in this setting (and usually with worse results).
+### Different distribution of train and test datasets
 
-Although these models have their flaws (including slow sampling due to autoregressivity, and a lack of interpretability w.r.t. what actually happens inside the network), I think they constituted an important *existence proof* that encouraged further research into waveform-based models.
+Here , I would like to mention some important points. Firstly, based on our experiments we found that there were new users in test dataset (i.e. there were users who did not have a single transaction present in test dataset. Secondly, the transaction dates in train and test datasets were disjoint. We had to predict in the future using the past dataset.
 
-WaveNet's strategy to deal with long-term correlations is to use *dilated convolutions*: successive convolutional layers use filters with gaps between their inputs, so that the connectivity pattern across many layers forms a tree structure (see figure above). This enables rapid growth of the receptive field, which means that **a WaveNet with only a few layers can learn dependencies across many timesteps**. Note that the convolutions used in WaveNet are causal (no connectivity from future to past), which forces the model to learn to predict what values the signal could take at each position in time.
-
-SampleRNN's strategy is a bit different: multiple RNNs are stacked on top of each other, with each running at a different frequency. Higher-level RNNs update less frequently, which means they can more easily capture long-range correlations and learn high-level features.
-
-Both models demonstrated excellent text-to-speech results, surpassing the state of the art at the time (concatenative synthesis, for most languages) in terms of naturalness. Both models were also applied to (piano) music generation, which constituted a nice demonstration of the promise of music generation in the waveform domain, but they were clearly limited in their ability to capture longer-term musical structure.
-
-<p style='background-color: #efe; border: 1px dashed #898; padding: 0.2em 0.5em;'>
-<strong>WaveNet</strong>: <a href="https://arxiv.org/abs/1609.03499">paper</a> - <a href="https://deepmind.com/blog/article/wavenet-generative-model-raw-audio">blog post</a><br>
-<strong>SampleRNN</strong>: <a href="https://arxiv.org/abs/1612.07837">paper</a> - <a href="https://soundcloud.com/samplernn/sets">samples</a>
-</p>
-
-### Parallel WaveNet & ClariNet
-
-Sampling from autoregressive models of raw audio can be quite slow and impractical. To address this issue, Parallel WaveNet[^parallelwavenet] uses *probability density distillation* to train a model from which samples can be drawn in a single feed-forward pass. This requires a trained autoregressive WaveNet, which functions as a teacher, and an inverse autoregressive flow (IAF) model which acts as the student and learns to mimic the teacher's predictions.
-
-While an autoregressive model is slow to sample from, inferring the likelihood of a given example (and thus, maximum-likelihood training) can be done in parallel. **For an inverse autoregressive flow, it's the other way around: sampling is fast, but inference is slow**. Since most practical applications rely on sampling rather than inference, such a model is often better suited. IAFs are hard to train from scratch though (because that requires inference), and the probability density distillation approach makes training them tractable.
-
-Due to the nature of the probability density distillation objective, the student will end up matching the teacher's predictions in a way that minimises the *reverse* KL divergence. This is quite unusual: likelihood-based models are typically trained to minimise the forward KL divergence instead, which is equivalent to maximising the likelihood (and minimising the reverse KL is usually intractable). While minimising the forward KL leads to mode-covering behaviour, **minimising the reverse KL will instead lead to mode-seeking behaviour**, which means that the model may end up ignoring certain modes in the data distribution.
-
-In the text-to-speech (TTS) setting, this may actually be exactly what we want: given an excerpt of text, we want the model to generate a realistic utterance corresponding to that excerpt, but we aren't particularly fussed about being able to generate every possible variation -- one good-sounding utterance will do. This is a setting where **realism is clearly more important than diversity**, because all the diversity that we care about is already captured in the conditioning signal that we provide. This is usually the setting where adversarial models excel, because of their inherent mode-seeking behaviour, but using probability density distillation we can also train likelihood-based models this way.
-
-To prevent the model from collapsing, parallel WaveNet uses a few additional loss terms to encourage the produced waveforms to resemble speech (such as a loss on the average power spectrum).
-
-If we want to do music generation, we will typically care more about diversity because the conditioning signals we provide to the model are weaker. I believe this is why we haven't really seen the Parallel WaveNet approach catch on outside of TTS.
-
-ClariNet[^clarinet] was introduced as a variant of Parallel WaveNet which uses a Gaussian inverse autoregressive flow. The Gaussian assumption makes it possible to compute the reverse KL in closed form, rather than having to approximate it by sampling, which stabilises training.
-
-<p style='background-color: #efe; border: 1px dashed #898; padding: 0.2em 0.5em;'>
-<strong>Parallel WaveNet</strong>: <a href="https://arxiv.org/abs/1711.10433">paper</a> - <a href="https://deepmind.com/blog/article/high-fidelity-speech-synthesis-wavenet">blog post 1</a> - <a href="https://deepmind.com/blog/article/wavenet-launches-google-assistant">blog post 2</a><br>
-<strong>ClariNet</strong>: <a href="https://arxiv.org/abs/1807.07281">paper</a> - <a href="https://clarinet-demo.github.io/">samples</a>
-</p>
-
-### Flow-based models: WaveGlow, FloWaveNet, WaveFlow, Blow
-
-Training an IAF with probability density distillation isn't the only way to train a flow-based model: most can be trained by maximum likelihood instead. In that case, the models will be encouraged to capture all the modes of the data distribution. This, in combination with their relatively low parameter efficiency (due to the invertibility requirement), means that they might need to be a bit larger to be effective. On the other hand, **they allow for very fast sampling because all timesteps can be generated in parallel**, so while the computational cost may be higher, sampling will still be faster in practice. Another advantage is that no additional loss terms are required to prevent collapse.
-
-WaveGlow[^waveglow] and FloWaveNet[^flowavenet], both originally published in late 2018, are flow-based models of raw audio conditioned on mel-spectrograms, which means they can be used as *vocoders*. Because of the limited parameter efficiency of flow-based models, I suspect that it would be difficult to use them for music generation in the waveform domain, where conditioning signals are much more sparse -- but they could of course be used to render mel-spectrograms generated by some other model into waveforms (more on that later).
-
-WaveFlow[^waveflow] (with an F instead of a G) is a more recent model that improves parameter efficiency by combining the flow-based modelling approach with partial autoregressivity to model local signal structure. This allows for a trade-off between sampling speed and model size. Blow[^blow] is a flow-based model of waveforms for non-parallel voice conversion. 
-
-<p style='background-color: #efe; border: 1px dashed #898; padding: 0.2em 0.5em;'>
-<strong>WaveGlow</strong>: <a href="https://arxiv.org/abs/1811.00002">paper</a> - <a href="https://github.com/NVIDIA/waveglow">code</a> - <a href="https://nv-adlr.github.io/WaveGlow">samples</a><br>
-<strong>FloWaveNet</strong>: <a href="https://arxiv.org/abs/1811.02155">paper</a> - <a href="https://github.com/ksw0306/FloWaveNet">code</a> - <a href="https://ksw0306.github.io/flowavenet-demo/">samples</a><br>
-<strong>WaveFlow</strong>: <a href="https://arxiv.org/abs/1912.01219">paper</a> - <a href="https://waveflow-demo.github.io/">samples</a><br>
-<strong>Blow</strong>: <a href="https://papers.nips.cc/paper/8904-blow-a-single-scale-hyperconditioned-flow-for-non-parallel-raw-audio-voice-conversion">paper</a> - <a href="https://github.com/joansj/blow">code</a> - <a href="https://blowconversions.github.io/">samples</a>
-</p>
-
-### Hierarchical WaveNets
-
-For the purpose of music generation, **WaveNet is limited by its ability to capture longer-term signal structure**, as previously stated. In other words: while it is clearly able to capture local signal structure very well (i.e. the timbre of an instrument), it isn't able to model the evolution of chord progressions and melodies over longer time periods. This makes the outputs produced by this model sound rather improvisational, to put it nicely.
-
-This may seem counterintuitive at first: the tree structure of the connectivity between the layers of the model should allow for a very rapid growth of its receptive field. So if you have a WaveNet model that captures up to a second of audio at a time (more than sufficient for TTS), stacking a few more dilated convolutional layers on top should suffice to grow the receptive field by several orders of magnitude (up to many minutes). At that point, the model should be able to capture any kind of meaningful musical structure.
-
-In practice, however, we need to train models on excerpts of audio that are at least as long as the longest-range correlations that we want to model. So while the depth of the model has to grow only logarithmically as we increase the desired receptive field, **the computational and memory requirements for training do in fact grow linearly**. If we want to train a model that can learn about musical structure across tens of seconds, that will necessarily be an order of magnitude more expensive -- and WaveNets that generate music already have to be quite large as it is, even with a receptive field of just one second, because **music is harder to model than speech**. Note also that one second of audio corresponds to a sequence of 16000 timesteps at 16 kHz, so even at a scale of seconds, we are already modelling very long sequences.
-
-In 10 years, the hardware we would need to train a WaveNet with a receptive field of 30 seconds (or almost half a million timesteps at 16 kHz) may just fit in a desktop computer, so we could just wait until then to give it a try. But if we want to train such models today, we need a different strategy. If we could train separate models to capture structure at different timescales, we could have a dedicated model that focuses on capturing longer-range correlations, without having to also model local signal structure. This seems feasible, seeing as models of high-level representations of music (i.e. scores or MIDI) clearly do a much better job of capturing long-range musical structure already.
-
-We can approach this as a **representation learning** problem: to decouple learning of local and large-scale structure, we need to extract a more compact, high-level representation $$h$$ from the audio signals $$x$$, that makes abstraction of local detail and has a much lower sample rate. Ideally, we would learn a model $$h = f(x)$$ to extract such a representation from data (although using existing high-level representations like MIDI is also possible, as we'll discuss later).
-
-Then we can split up the task by training two separate models: a WaveNet that models the high-level representation: $$p_H(h)$$, and another that models the local signal structure, conditioned on the high-level representation: $$p_{X \vert H}(x \vert h)$$. The former model can focus on learning about long-range correlations, as local signal structure is not present in the representation it operates on. The latter model, on the other hand, can focus on learning about local signal structure, as relevant information about large-scale structure is readily available in its conditioning signal. Combined together, these models can be used to sample new audio signals by first sampling $$\hat{h} \sim p_H(h)$$ and then $$\hat{x} \sim p_{X \vert H}(x \vert \hat{h})$$.
-
-We can learn both $$f(x)$$ and $$p_{X \vert H}(x \vert h)$$ together by training an *autoencoder*: $$f(x)$$ is the encoder, a feed-forward neural network, and $$p_{X \vert H}(x \vert h)$$ is the decoder, a conditional WaveNet. Learning these jointly will enable $$f(x)$$ to adapt to the WaveNet, so that it extracts information that the WaveNet cannot easily model itself.
-
-To make the subsequent modelling of $$h = f(x)$$ with another WaveNet easier, we use a VQ-VAE[^vqvae]: an **autoencoder with a discrete bottleneck**. This has two important consequences:
-- **Autoregressive models seem to be more effective on discrete sequences** than on continuous ones. Making the high-level representation discrete makes the hierarchical modelling task much easier, as we don't need to adapt the WaveNet model to work with continuous data.
-- The discreteness of the representation also **limits its information capacity**, forcing the autoencoder to encode only the most important information in $$h$$, and to use the autoregressive connections in the WaveNet decoder to capture any local structure that wasn't encoded in $$h$$.
-
-To split the task into more than two parts, we can apply this procedure again to the high-level representation $$h$$ produced by the first application, and **repeat this until we get a hierarchy with as many levels as desired**. Higher levels in the hierarchy make abstraction of more and more of the low-level details of the signal, and have progressively lower sample rates (yielding shorter sequences). a three-level hierarchy is shown in the diagram below. Note that **each level can be trained separately and in sequence**, thus greatly reducing the computational requirements of training a model with a very large receptive field.
-
-<figure>
-  <img src="/images/hierarchical_wavenet.svg" alt="Hierarchical WaveNet model, consisting of (conditional) autoregressive models of several levels of learnt discrete representations.">
-  <figcaption>Hierarchical WaveNet model, consisting of (conditional) autoregressive models of several levels of learnt discrete representations.</figcaption>
-</figure>
-
-My colleagues and I explored this idea and trained hierachical WaveNet models on piano music[^challenge]. We found that there was a trade-off between audio fidelity and long-range coherence of the generated samples. When more model capacity was repurposed to focus on long-range correlations, this reduced the capability of the model to capture local structure, resulting in lower perceived audio quality. We also conducted a human evaluation study where we asked several listeners to rate both the fidelity and the musicality of some generated samples, to demonstrate that hierarchical models produce samples which sound more musical.
-
-<p style='background-color: #efe; border: 1px dashed #898; padding: 0.2em 0.5em;'>
-<strong>Hierarchical WaveNet</strong>: <a href="https://papers.nips.cc/paper/8023-the-challenge-of-realistic-music-generation-modelling-raw-audio-at-scale">paper</a> - <a href="https://drive.google.com/drive/folders/1s7yGi928cMla8gZhfQKNXACPACSrJ9Vg">samples</a>
-</p>
-
-### <a name="wave2midi2wave"></a> Wave2Midi2Wave and the MAESTRO dataset
+## <a name="feature-engineering"></a> Feature Engineering
 
 As alluded to earlier, rather than learning high-level representations of music audio from data, we could also **use existing high-level representations such as MIDI** to construct a hierarchical model. We can use a powerful language model to model music in the symbolic domain, and also construct a conditional WaveNet model that generates audio, given a MIDI representation. Together with my colleagues from the Magenta team at Google AI, [we trained such models](https://magenta.tensorflow.org/maestro-wave2midi2wave) on a new dataset called MAESTRO, which features 172 hours of virtuosic piano performances, captured with fine alignment between note labels and audio waveforms[^maestro]. This dataset is [available to download](https://magenta.tensorflow.org/datasets/maestro) for research purposes.
 
