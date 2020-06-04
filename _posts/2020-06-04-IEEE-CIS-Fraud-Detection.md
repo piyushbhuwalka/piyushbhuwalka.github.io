@@ -137,7 +137,7 @@ This was the validation strategy we mostly relied on . In this strategy , we gro
 
 ## <a name="models"></a> Models
 
-I used an ensemble of LightGBM , CatBoost and XGBoost. All the models were hypertuned individually using random search cv. We tried several ensembling techniques but we found simple average performs the best. My ensemble scored 0.931068 AUROC on private leaderboard (AUROC is generally the best metric to use when there is huge class imbalance) .
+I used an ensemble of LightGBM , CatBoost and XGBoost. All the models were hypertuned individually using random search cv. We tried several ensembling techniques but we found simple average performs the best. My ensemble scored 0.935748 AUROC on private leaderboard (AUROC is generally the best metric to use when there is huge class imbalance) .
 
 ## <a name="conclusion"></a> Conclusion
 
