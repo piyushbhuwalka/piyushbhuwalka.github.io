@@ -6,7 +6,7 @@ description: "This is a write-up of a presentation on generating music in the wa
 tags: [machine learning, kaggle competition]
 
 image:
-feature: pic.jpg
+  feature: pic.jpg
 comments: false
 share: true
 ---
