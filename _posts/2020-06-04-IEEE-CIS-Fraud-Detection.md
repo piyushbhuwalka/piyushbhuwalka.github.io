@@ -94,7 +94,6 @@ After running some simple exploration scripts, I quickly found out that there ar
 
 <figure>
   <a href="/images/target.png"><img style="display: block; margin: auto;" src="/images/target.png" alt="Target"></a>
-  <figcaption>Figure showing the unbalanced distribution of targets.</figcaption>
 </figure>
 
 ### Different distribution of train and test datasets
@@ -103,7 +102,6 @@ Here , I would like to mention some important points. Firstly, based on our expe
 
 <figure>
   <a href="/images/date.png"><img style="display: block; margin: auto;" src="/images/date.png" alt="Transaction Date"></a>
-  <figcaption>Figure showing that the Transaction dates in train and test are disjoint.</figcaption>
 </figure>
 
 ## <a name="feature-engineering"></a> Feature Engineering
@@ -114,7 +112,6 @@ This is the most important part of this competition. As I have pointed out earli
 
 <figure>
   <a href="/images/features.png"><img style="display: block; margin: auto;" src="/images/features.png" alt="Features"></a>
-  <figcaption>Figure showing the most important features.</figcaption>
 </figure>
 
 ### Converting 'days from a certain event' to a point in time
@@ -128,6 +125,10 @@ I experimented with a lot of validation strategies. Here are few of them -
 ### Gradual incrementation
 
 In this we sort the data by time. Then we divide it into say 5 parts. During 1st fold, we train on first part and validate on second. During second fold , we train on first and second, and validate on third. And so on for all folds. This strategy did not provide us good results. One obvious reason was that during the initial folds , we are leaving out almost all data. So during the initial folds we get inaccurate results.
+
+<figure>
+  <a href="/images/validation.png"><img style="display: block; margin: auto;" src="/images/validation.png" alt="Validation"></a>
+</figure>
 
 ### Grouped K-folds
 
