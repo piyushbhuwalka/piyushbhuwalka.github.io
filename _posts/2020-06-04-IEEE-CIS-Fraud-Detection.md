@@ -6,32 +6,19 @@ description: "This is a write-up of a presentation on generating music in the wa
 tags: [machine learning, kaggle competition]
 
 image:
-  feature: pic.jpg
+  feature:
 comments: false
 share: true
 ---
 
-In November last year, I co-presented a tutorial on **waveform-based music processing with deep learning** with [Jordi Pons](http://www.jordipons.me/) and [Jongpil Lee](https://jongpillee.github.io/) at [ISMIR 2019](https://ismir2019.ewi.tudelft.nl/). Jongpil and Jordi talked about music classification and source separation respectively, and I presented the last part of the tutorial, on music generation in the waveform domain. It was very well received, so I've decided to write it up in the form of a blog post.
-
-<div style="float: right; width: 30%;"><a href="https://ismir2019.ewi.tudelft.nl/"><img src="/images/ismir_logo.jpg" alt="ISMIR"></a></div>
-
-ISMIR used to be my home conference when I was a PhD student working on music information retrieval, so it was great to be back for the first time in five years. With about 450 attendees (the largest edition yet), it made for a very different experience than what I'm used to with machine learning conferences like ICML, NeurIPS and ICLR, whose audiences tend to number in the thousands these days.
-
-Our tutorial on the first day of the conference gave rise to plenty of interesting questions and discussions throughout, which inspired me to write some of these things down and hopefully provide a basis to continue these discussions online. Note that I will only be covering music generation in this post, but Jordi and Jongpil are working on blog posts about their respective parts. I will share them here when they are published. In the meantime, **the slide deck we used includes all three parts and is now available on [Zenodo (PDF)](https://zenodo.org/record/3529714#.XdBi0dv7Sf5) and on [Google slides](https://docs.google.com/presentation/d/1_ezZXDkyhp9USAYMc5oKJCkUrUhBfo-Di8H8IfypGBM/edit#slide=id.g647f5a8648_0_57)**.  I've also added a few things to this post that I've thought of since giving the tutorial, and some new work that has come out since.
-
-This is also an excellent opportunity to revive my blog, which has lain dormant for the past four years. I have taken the time to update the blog software, so if anything looks odd, that may be why. Please let me know so I can fix it!
-
-<figure>
-  <a href="/images/ismir_2019_photo.jpeg"><img src="/images/ismir_2019_photo.jpeg" alt="Presenting our tutorial session at ISMIR 2019 in Delft, The Netherlands."></a>
-  <figcaption>Presenting our tutorial session at ISMIR 2019 in Delft, The Netherlands. Via <a href="https://twitter.com/ismir2019/status/1191341227825934336">ISMIR2019 on Twitter</a>.</figcaption>
-</figure>
+During this period of lockdown I decided to attempt the IEEE CIS Fraud Detection Kaggle Competition. The ideas that I used for this competition were very well received, so I've decided to write it up in the form of a blog post.
 
 ## <a name="overview"></a> Overview
 
 This blog post is divided into a few different sections. I'll try to motivate why modelling music in the waveform domain is an interesting problem. Then I'll give an overview of generative models, the various flavours that exist, and some important ways in which they differ from each other. In the next two sections I'll attempt to cover the state of the art in both likelihood-based and adversarial models of raw music audio. Finally, I'll raise some observations and discussion points. If you want to skip ahead, just click the section title below to go there.
 
-* *[Motivation](#motivation)*
-* *[Generative models](#generative-models)*
+* *[Problem Statement](#motivation)*
+* *[Dataset](#dataset)*
 * *[Likelihood-based models of waveforms](#likelihood-based-models)*
 * *[Adversarial models of waveforms](#adversarial-models)*
 * *[Discussion](#discussion)*
@@ -41,162 +28,72 @@ This blog post is divided into a few different sections. I'll try to motivate wh
 Note that this blog post is not intended to provide an exhaustive overview of all the published research in this domain -- I have tried to make a selection and I've inevitably left out some great work. **Please don't hesitate to suggest relevant work in the comments section!**
 
 
-## <a name="motivation"></a> Motivation
+## <a name="motivation"></a> Problem Statement
 
-### Why audio?
+In this competition you are predicting the probability that an online transaction is fraudulent, as denoted by the binary target isFraud.
 
-Music generation has traditionally been studied in the **symbolic domain**: the output of the generative process could be a musical score, a sequence of [MIDI events](https://en.wikipedia.org/wiki/MIDI), a simple melody, a sequence of chords, a textual representation[^folkrnn] or some other higher-level representation. The physical process through which sound is produced is abstracted away. This dramatically reduces the amount of information that the models are required to produce, which makes the modelling problem more tractable and allows for lower-capacity models to be used effectively.
+The data is broken into two files identity and transaction, which are joined by TransactionID. Not all transactions have corresponding identity information.
 
-A very popular representation is the so-called *piano roll*, which dates back to the player pianos of the early 20th century. Holes were punched into a roll of paper to indicate which notes should be played at which time. This representation survives in digital form today and is commonly used in music production. Much of the work on music generation using machine learning has made use of (some variant of) this representation, because it allows for capturing performance-specific aspects of the music without having to model the sound.
+## <a name="dataset"></a> Dataset
 
+The description of the dataset provided in the competitions page was very brief. Below is the more detailed version of the dataset which was present in the discussions section of the competition.
 
-<figure class="half">
-  <a href="/images/player_piano.jpg"><img src="/images/player_piano.jpg" alt="Player piano with a physical piano roll inside."></a>
-  <a href="/images/piano_roll.jpg"><img src="/images/piano_roll.jpg" alt="Modern incarnation of a piano roll."></a>
-  <figcaption><strong>Left:</strong> player piano with a physical piano roll inside. <strong>Right:</strong> modern incarnation of a piano roll.</figcaption>
-</figure>
+* Transaction table
+“It contains money transfer and also other gifting goods and service, like you booked a ticket for others, etc.”
 
-Piano rolls are great for piano performances, because they are able to exactly capture the *timing*, *pitch* and *velocity* (i.e. how hard a piano key is pressed, which is correlated with loudness, but not equivalent to it) of the notes. They are able to very accurately represent piano music, because they cover all the "degrees of freedom" that a performer has at their disposal. However, most other instruments have many more degrees of freedom: think about all the various ways you can play a note on the guitar, for example. You can decide which string to use, where to pick, whether to bend the string or not, play vibrato, ... you could even play harmonics, or use two-hand tapping. Such a vast array of different playing techniques endows the performer with a lot more freedom to vary the sound that the instrument produces, and coming up with a high-level representation that can accurately capture all this variety is much more challenging. In practice, a lot of this detail is ignored and a simpler representation is often used when generating music for these instruments.
+* TransactionDT: timedelta from a given reference datetime (not an actual timestamp)
+“TransactionDT first value is 86400, which corresponds to the number of seconds in a day (60 * 60 * 24 = 86400) so I think the unit is seconds. Using this, we know the data spans 6 months, as the maximum value is 15811131, which would correspond to day 183.”
 
-Modelling the sound that an instrument produces is much more difficult than modelling (some of) the parameters that are controlled by the performer, but it frees us from having to manually design high-level representations that accurately capture all these parameters. Furthermore, it allows our models to capture variability that is beyond the performer's control: the idiosyncracies of individual instruments, for example (no two violins sound exactly the same!), or the parameters of the recording setup used to obtain the training data for our models. It also makes it possible to model ensembles of instruments, or other sound sources altogether, without having to fundamentally change anything about the model apart from the data it is trained on.
+* TransactionAMT: transaction payment amount in USD
+“Some of the transaction amounts have three decimal places to the right of the decimal point. There seems to be a link to three decimal places and a blank addr1 and addr2 field. Is it possible that these are foreign transactions and that, for example, the 75.887 in row 12 is the result of multiplying a foreign currency amount by an exchange rate?”
 
-Digital audio representations require a reasonably high bit rate to achieve acceptable fidelity however, and modelling all these bits comes with a cost. **Music audio models will necessarily have to have a much higher capacity than their symbolic counterparts**, which implies higher computational requirements for model training.
+* ProductCD: product code, the product for each transaction
+“Product isn't necessary to be a real 'product' (like one item to be added to the shopping cart). It could be any kind of service.”
 
-### <a name="why-waveforms"></a>Why waveforms?
+* card1 - card6: payment card information, such as card type, card category, issue bank, country, etc.
 
-Digital representations of sound come in many shapes and forms. For reproduction, sound is usually stored by encoding the shape of the waveform as it changes over time. For analysis however, we often make use of **[spectrograms](https://en.wikipedia.org/wiki/Spectrogram)**, both for computational methods and for visual inspection by humans. A spectrogram can be obtained from a waveform by computing the Fourier transform of overlapping windows of the signal, and stacking the results into a 2D array. This shows the **local frequency content of the signal over time**.
+* addr: address
+“both addresses are for purchaser
+addr1 as billing region
+addr2 as billing country”
 
-Spectrograms are complex-valued: they represent both the amplitude and the phase of different frequency components at each point in time. Below is a visualisation of a magnitude spectrogram and its corresponding phase spectrogram. While the magnitude spectrogram clearly exhibits a lot of structure, with sustained frequencies manifesting as horizontal lines and harmonics showing up as parallel horizontal lines, the phase spectrogram looks a lot more random.
+* dist: distance
+"distances between (not limited) billing address, mailing address, zip code, IP address, phone area, etc.”
 
-<figure>
-  <a href="/images/spectrogram_magnitude.png"><img src="/images/spectrogram_magnitude.png" alt="Magnitude spectrogram of a piano recording."></a>
-  <a href="/images/spectrogram_phase.png"><img src="/images/spectrogram_phase.png" alt="Phase spectrogram of a piano recording."></a>
-  <figcaption><strong>Top:</strong> magnitude spectrogram of a piano recording. <strong>Bottom:</strong> the corresponding phase spectrogram.</figcaption>
-</figure>
+* P_ and (R_) emaildomain: purchaser and recipient email domain “ certain transactions don't need recipient, so Remaildomain is null.”
 
-When extracting information from audio signals, it turns out that we can often just **discard the phase component**, because it is not informative for most of the things we could be interested in. In fact, this is why the magnitude spectrogram is often referred to simply as "the spectrogram". When generating sound however, phase is very important because it meaningfully affects our perception. Listen below to an original excerpt of a piano piece, and a corresponding excerpt where the original phase has been replaced by random uniform phase information. Note how the harmony is preserved, but the timbre changes completely.
+* C1-C14: counting, such as how many addresses are found to be associated with the payment card, etc. The actual meaning is masked.
+“Can you please give more examples of counts in the variables C1-15? Would these be like counts of phone numbers, email addresses, names associated with the user? I can't think of 15.
+Your guess is good, plus like device, ipaddr, billingaddr, etc. Also these are for both purchaser and recipient, which doubles the number.”
 
-<figure class="half">
-    <audio controls src="/files/original_phase.wav"><a href="/files/original_phase.wav">Audio with original phase</a></audio>
-    <audio controls src="/files/random_phase.wav"><a href="/files/random_phase.wav">Audio with random phase</a></audio>
-    <figcaption><strong>Left:</strong> excerpt with original phase. <strong>Right:</strong> the same excerpt with random phase.</figcaption>
-</figure>
+* D1-D15: timedelta, such as days between previous transaction, etc.
 
-The phase component of a spectrogram is tricky to model for a number of reasons:
-- it is an **angle**: $$\phi \in [0, 2 \pi)$$ and it wraps around;
-- it becomes **effectively random** as the magnitude tends towards 0, because noise starts to dominate;
-- absolute phase is less meaningful, but **relative phase differences over time matter perceptually**.
+* M1-M9: match, such as names on card and address, etc.
 
-If we model waveforms directly, we are implicitly modelling their phase as well, but we don't run into these issues that make modelling phase so cumbersome. There are other strategies to avoid these issues, some of which I will <a href="#alternatives">discuss later</a>, but **waveform modelling currently seems to be the dominant approach in the generative setting**. This is particularly interesting because magnitude spectrograms are by far the most common representation used for discriminative models of audio.
+* Vxxx: Vesta engineered rich features, including ranking, counting, and other entity relations.
+“For example, how many times the payment card associated with a IP and email or address appeared in 24 hours time range, etc.”
+"All Vesta features were derived as numerical. some of them are count of orders within a clustering, a time-period or condition, so the value is finite and has ordering (or ranking). I wouldn't recommend to treat any of them as categorical. If any of them resulted in binary by chance, it maybe worth trying."
 
-### Discretising waveforms
+* Identity Table
+Variables in this table are identity information – network connection information (IP, ISP, Proxy, etc) and digital signature (UA/browser/os/version, etc) associated with transactions.
+They're collected by Vesta’s fraud protection system and digital security partners.
+(The field names are masked and pairwise dictionary will not be provided for privacy protection and contract agreement)
 
-When representing a waveform digitally, we need to **discretise it in both time and amplitude**. This is referred to as [pulse code modulation (PCM)](https://en.wikipedia.org/wiki/Pulse-code_modulation). Because audio waveforms are effectively band-limited (humans cannot perceive frequencies above ~20 kHz), the [sampling theorem](https://en.wikipedia.org/wiki/Nyquist%E2%80%93Shannon_sampling_theorem) tells us that we can discretise the waveform in time without any loss of information, as long as the sample rate is high enough (twice the highest frequency). This is why CD quality audio has a sample rate of 44.1 kHz. Much lower sample rates result in an audible loss of fidelity, but since the resulting discrete sequences also end up being much shorter, a compromise is often struck in the context of generative modelling to reduce computational requirements. Most models from literature use sample rates of 16 or 24 kHz.
+* DeviceInfo : https://www.kaggle.com/c/ieee-fraud-detection/discussion/101203#583227
 
-<figure>
-  <a href="/images/digital_waveform.gif"><img style="width: 100%; border: 1px solid #eee;" src="/images/digital_waveform.gif" alt="Digital waveform."></a>
-  <figcaption>Digital waveform. The individual samples become visible as the zoom level increases. Figure taken from <a href="https://deepmind.com/blog/article/wavenet-generative-model-raw-audio">the original WaveNet blog post</a>.</figcaption>
-</figure>
+“id01 to id11 are numerical features for identity, which is collected by Vesta and security partners such as device rating, ip_domain rating, proxy rating, etc. Also it recorded behavioral fingerprint like account login times/failed to login times, how long an account stayed on the page, etc. All of these are not able to elaborate due to security partner T&C. I hope you could get basic meaning of these features, and by mentioning them as numerical/categorical, you won't deal with them inappropriately.”
 
-When we also quantise the amplitude, some loss of fidelity is inevitable. CD quality uses 16 bits per sample, representing 2<sup>16</sup> equally spaced quantisation levels. If we want to use fewer bits, we can use logarithmically spaced quantisation levels instead to account for our nonlinear perception of loudness. This **["mu-law companding"](https://en.wikipedia.org/wiki/%CE%9C-law_algorithm)** will result in a smaller perceived loss of fidelity than if the levels were equally spaced.
+**Labeling logic 
+"The logic of our labeling is define reported chargeback on the card as fraud transaction (isFraud=1) and transactions posterior to it with either user account, email address or billing address directly linked to these attributes as fraud too. If none of above is reported and found beyond 120 days, then we define as legit transaction (isFraud=0).
+However, in real world fraudulent activity might not be reported, e.g. cardholder was unaware, or forgot to report in time and beyond the claim period, etc. In such cases, supposed fraud might be labeled as legit, but we never could know of them. Thus, we think they're unusual cases and negligible portion."**
 
-## <a name="generative-models"></a> Generative models
+**Please note the last paragraph. Most of the participants solved the wrong problem (although they still got good scores !!). Here we do not have to classify whether a transaction is fraudulent or not, because as per the last para all transactions after a fraud transaction for a client is marked fraudulent. So our main motive should be to identify the client for a particular transaction. I know there would still be many questions in your mind, answers of which you would get ahead.**
 
-Given a dataset $$X$$ of examples $$x \in X$$, which we assume to have been drawn independently from some underlying distribution $$p_X(x)$$, a generative model can learn to approximate this distribution $$p_X(x)$$. Such a model could be used to generate new samples that look like they could have been part of the original dataset. We distinguish *implicit* and *explicit* generative models: an implicit model can produce new samples $$x \sim p_X(x)$$, but cannot be used to infer the likelihood of an example (i.e. we cannot tractably compute $$p_X(x)$$ given $$x$$). If we have an explicit model, we can do this, though sometimes only up to an unknown normalising constant.
+## <a name="exploration"></a> Exploration
 
-### Conditional generative models
+After running some simple exploration scripts, I quickly found out that there are a few aspects of this dataset which makes the competition extremely challenging.
 
-Generative models become more practically useful when we can exert some influence over the samples we draw from them. We can do this by providing a **conditioning signal** $$c$$, which contains side information about the kind of samples we want to generate. The model is then fit to the conditional distribution $$p_X(x \vert c)$$ instead of $$p_X(x)$$.
-
-Conditioning signals can take many shapes or forms, and it is useful to distinguish different levels of information content. The generative modelling problem becomes easier if the conditioning signal $$c$$ is richer, because it reduces uncertainty about $$x$$. We will refer to conditioning signals with low information content as *sparse conditioning*, and those with high information content as *dense conditioning*. Examples of conditioning signals in the image domain and the music audio domain are shown below, ordered according to density.
-
-<figure>
-  <img src="/images/sparse-dense-conditioning.svg" alt="Examples of sparse and dense conditioning signals in the image domain (top) and the music audio domain (bottom).">
-  <figcaption>Examples of sparse and dense conditioning signals in the image domain (top) and the music audio domain (bottom).</figcaption>
-</figure>
-
-Note that the density of a conditioning signal is often correlated with its level of abstraction: high-level side information tends to be more sparse. Low-level side information isn't necessarily dense, though. For example, we could condition a generative model of music audio on a low-dimensional vector that captures the overall timbre of an instrument. This is a low-level aspect of the audio signal, but it constitutes a sparse conditioning signal.
-
-### Likelihood-based models
-
-Likelihood-based models directly parameterise $$p_X(x)$$. The parameters $$\theta$$ are then fit by maximising the likelihood of the data under the model:
-
-$$\mathcal{L}_\theta(X) = \sum_{x \in X} \log p_X(x|\theta) \quad \quad \theta^* = \arg \max_\theta \mathcal{L}_\theta(X) .$$ 
-
-Note that this is typically done in the log-domain because it simplifies computations and improves numerical stability. Because the model directly parameterises $$p_X(x)$$, we can **easily infer the likelihood of any** $$x$$, so we get an explicit model. Three popular flavours of likelihood-based models are autoregressive models, flow-based models and variational autoencoders. The following three subsections provide a brief overview of each.
-
-### Autoregressive models
-
-In an autoregressive model, we assume that our examples $$x \in X$$ can be treated as sequences $$\{x_i\}$$. We then factorise the distribution into a product of conditionals, using the [chain rule of probability](https://en.wikipedia.org/wiki/Chain_rule_(probability)):
-
-$$p_X(x) = \prod_i p(x_i \vert x_{<i}) .$$
-
-These conditional distributions are typically scalar-valued and much easier to model. Because we further assume that the distribution of the sequence elements is stationary, we can share parameters and use the same model for all the factors in this product.
-
-For audio signals, this is a very natural thing to do, but we can also do this for other types of structured data by arbitrarily choosing an order (e.g. raster scan order for images, as in PixelRNN[^pixelrnn] and PixelCNN[^pixelcnn]).
-
-Autoregressive models are attractive because they are able to **accurately capture correlations between the different elements** $$x_i$$ in a sequence, and they allow for fast inference (i.e. computing $$p_X(x)$$ given $$x$$). Unfortunately they tend to be **slow to sample from**, because samples need to be drawn sequentially from the conditionals for each position in the sequence.
-
-### Flow-based models
-
-Another strategy for constructing a likelihood-based model is to use the **[change of variables theorem](https://en.wikipedia.org/wiki/Probability_density_function#Function_of_random_variables_and_change_of_variables_in_the_probability_density_function)** to transform $$p_X(x)$$ into a simple, factorised distribution $$p_Z(z)$$ (standard Gaussian is a popular choice) using an invertible mapping $$x = g(z)$$:
-
-$$p_X(x) = p_Z(z) \cdot |\det J|^{-1} \quad \quad J = \frac{dg(z)}{dz}.$$
-
-Here, $$J$$ is the Jacobian of $$g(z)$$. Models that use this approach are referred to as normalising flows or flow-based models[^nice][^realnvp]. They are fast both for inference and sampling, but the **requirement for $$g(z)$$ to be invertible significantly constrains the model architecture**, and it makes them less parameter-efficient. In other words: flow-based models need to be quite large to be effective.
-
-For an in-depth treatment of flow-based models, I recommend Eric Jang's [two-part blog post](https://blog.evjang.com/2018/01/nf1.html) on the subject, and [Papamakarios et al.'s excellent review paper](https://arxiv.org/abs/1912.02762).
-
-### Variational autoencoders (VAEs)
-
-By far the most popular class of likelihood-based generative models, I can't avoid mentioning variational[^vaerezende] autoencoders[^vaekingma] -- but **in the context of waveform modelling, they are probably the least popular approach**. In a VAE, we jointly learn two neural networks: an *inference network* $$q(z \vert x)$$ learns to probabilistically map examples $$x$$ into a latent space, and a *generative network* $$p(x \vert z)$$ learns the distribution of the data conditioned on a latent representation $$z$$. These are trained to maximise a lower bound on $$p_X(x)$$, called the ELBO (Evidence Lower BOund), because computing $$p_X(x)$$ given $$x$$ (exact inference) is not tractable.
-
-Typical VAEs assume a factorised distribution for $$p(x \vert z)$$, which limits the extent to which they can capture dependencies in the data. While this is often an acceptable trade-off, in the case of waveform modelling it turns out to be a problematic restriction in practice. I believe this is why not a lot of work has been published that takes this approach (if you know of any, please point me to it). VAEs can also have more powerful decoders with fewer assumptions (autoregressive decoders, for example), but this may introduce other issues such as posterior collapse[^pc].
-
-To learn more about VAEs, check out [Jaan Altosaar's tutorial](https://jaan.io/what-is-variational-autoencoder-vae-tutorial/).
-
-### Adversarial models
-
-Generative Adversarial Networks[^gans] (GANs) take a very different approach to capturing the data distribution. Two networks are trained simultaneously: a *generator* $$G$$ attempts to produce examples according to the data distribution $$p_X(x)$$, given latent vectors $$z$$, while a *discriminator* $$D$$ attempts to tell apart generated examples and real examples. In doing so, the discriminator provides a learning signal for the generator which enables it to better match the data distribution. In the original formulation, the loss function is as follows:
-
-$$\mathcal{L}(x) = \mathbb{E}_x[\log D(x)] + \mathbb{E}_z[log(1 - D(G(z)))] .$$
-
-The generator is trained to minimise this loss, whereas the discriminator attempts to maximise it. This means the training procedure is a **two-player minimax game**, rather than an optimisation process, as it is for most machine learning models. Balancing this game and keeping training stable has been one of the main challenges for this class of models. Many alternative formulations have been proposed to address this.
-
-While adversarial and likelihood-based models are both ultimately trying to model $$p_X(x)$$, they approach this target from very different angles. As a result, **GANs tend to be better at producing realistic examples, but worse at capturing the full diversity of the data distribution**, compared to likelihood-based models.
-
-### More exotic flavours
-
-Many other strategies to learn models of complicated distributions have been proposed in literature. While research on waveform generation has chiefly focused on the two dominant paradigms of likelihood-based and adversarial models, some of these alternatives may hold promise in this area as well, so I want to mention a few that I've come across.
-
-* **Energy-based models** measure the "energy" of examples, and are trained by fitting the model parameters so that examples coming from the dataset have low energy, whereas all other configurations of inputs have high energy. This amounts to fitting an unnormalised density.  A nice recent example is [the work by Du & Mordatch at OpenAI](https://openai.com/blog/energy-based-models/)[^energy]. Energy-based models have been around for a very long time though, and one could argue that likelihood-based models are a special case. 
-
-* **Optimal transport** is another approach to measure the discrepancy between probability distributions, which has served as inspiration for new variants of generative adversarial networks[^wgan] and autoencoders[^swa].
-
-* **Autoregressive implicit quantile networks**[^aiqn] use a similar network architecture as likelihood-based autoregressive models, but they are trained using the quantile regression loss, rather than maximimum likelihood.
-
-* Two continuous distributions can be matched by minimising the L2 distance between the gradients of the density functions with respect to their inputs: $$\mathcal{L}(x) = \mathbb{E} [\vert\vert \nabla_x \log p_X(x) - \nabla_y \log p_Y(y) \vert\vert ^2]$$. This is called **score matching**[^scorematching] and some recent works have revisited this idea for density estimation[^ssm] and generative modelling[^scorebased].
-
-* Please share any others that I haven't mentioned in the comments!
-
-### Mode-covering vs. mode-seeking behaviour
-
-An important consideration when determining which type of generative model is appropriate for a particular application, is the degree to which it is *mode-covering* or *mode-seeking*. When a model does not have enough capacity to capture all the variability in the data, different compromises can be made. If all examples should be reasonably likely under the model, it will have to overgeneralise and put probability mass on interpolations of examples that may not be meaningful (mode-covering). If there is no such requirement, the probability mass can be focused on a subset of examples, but then some parts of the distribution will be ignored by the model (mode-seeking).
-
-<figure>
-  <a href="/images/mode_seeking_covering.png"><img src="/images/mode_seeking_covering.png" alt="Illustration of mode-seeking and mode-covering behaviour in model fitting."></a>
-  <figcaption>Illustration of mode-seeking and mode-covering behaviour in model fitting. The blue density represents the data distribution. The green density is our model, which is a single Gaussian. Because the data distribution is multimodal, our model does not have enough capacity to accurately capture it.</figcaption>
-</figure>
-
-**Likelihood-based models are usually mode-covering**. This is a consequence of the fact that they are fit by maximising the joint likelihood of the data. **Adversarial models on the other hand are typically mode-seeking**. A lot of ongoing research is focused on making it possible to control the trade-off between these two behaviours directly, without necessarily having to switch the class of models that are used.
-
-In general, mode-covering behaviour is desirable in sparsely conditioned applications, where we want diversity or we expect a certain degree of "creativity" from the model. Mode-seeking behaviour is more useful in densely-conditioned settings, where most of the variability we care about is captured in the conditioning signal, and we favour realism of the generated output over diversity.
-
-## <a name="likelihood-based-models"></a> Likelihood-based models of waveforms
-
-In this section, I'll try to summarise some of the key results from the past four years obtained with likelihood-based models of waveforms. While this blog post is supposed to be about music, note that many of these developments were initially targeted at generating speech, so inevitably I will also be talking about some work in the text-to-speech (TTS) domain. I recommend reading the associated papers and/or blog posts to find out more about each of these works.
-
-### WaveNet & SampleRNN
+### Class Distribution is Highly Unbalanced
 
 <figure>
   <a href="/images/wavenet.gif"><img style="display: block; margin: auto;" src="/images/wavenet.gif" alt="Wavenet sampling procedure."></a>
