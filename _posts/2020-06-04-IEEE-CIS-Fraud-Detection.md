@@ -23,6 +23,7 @@ This blog post is divided into a few different sections. Finally, I'll raise som
 * *[Feature Engineering](#feature-engineering)*
 * *[Validation Strategy](#validation-strategy)*
 * *[Models](#models)*
+* *[Conclusion](#conclusion)*
 
 Note that this blog post is not intended to provide an exhaustive overview of all the published research in this domain -- I have tried to make a selection and I've inevitably left out some great work. **Please don't hesitate to suggest relevant work in the comments section!**
 
@@ -78,9 +79,9 @@ Variables in this table are identity information – network connection informat
 They're collected by Vesta’s fraud protection system and digital security partners.
 (The field names are masked and pairwise dictionary will not be provided for privacy protection and contract agreement)
 
-“id01 to id11 are numerical features for identity, which is collected by Vesta and security partners such as device rating, ip_domain rating, proxy rating, etc. Also it recorded behavioral fingerprint like account login times/failed to login times, how long an account stayed on the page, etc. All of these are not able to elaborate due to security partner T&C. I hope you could get basic meaning of these features, and by mentioning them as numerical/categorical, you won't deal with them inappropriately.”
+* “id01 to id11 are numerical features for identity, which is collected by Vesta and security partners such as device rating, ip_domain rating, proxy rating, etc. Also it recorded behavioral fingerprint like account login times/failed to login times, how long an account stayed on the page, etc. All of these are not able to elaborate due to security partner T&C. I hope you could get basic meaning of these features, and by mentioning them as numerical/categorical, you won't deal with them inappropriately.”
 
-**Labeling logic 
+**Labeling logic : 
 "The logic of our labeling is define reported chargeback on the card as fraud transaction (isFraud=1) and transactions posterior to it with either user account, email address or billing address directly linked to these attributes as fraud too. If none of above is reported and found beyond 120 days, then we define as legit transaction (isFraud=0).
 However, in real world fraudulent activity might not be reported, e.g. cardholder was unaware, or forgot to report in time and beyond the claim period, etc. In such cases, supposed fraud might be labeled as legit, but we never could know of them. Thus, we think they're unusual cases and negligible portion."**
 
@@ -136,5 +137,8 @@ This was the validation strategy we mostly relied on . In this strategy , we gro
 
 ## <a name="models"></a> Models
 
-I used an ensemble of LightGBM , CatBoost and XGBoost. Although I could not participate in the actual competition , I was able to reach within 1% of Kaggle Leaderboard with the above approach . I have not stated the whole EDA nor the feature engineering part in this blog. Only the important parts are mentioned. To reach within top 1%, a few more bits are needed. I would recommend you to try the above approaches and feel free to contact me for any queries. To end with , I would like to state that you could always use **Label Encoding** to gain better scores.
+I used an ensemble of LightGBM , CatBoost and XGBoost. All the models were hypertuned individually using random search cv. We tried several ensembling techniques but we found simple average performs the best. My ensemble scored 0.931068 AUROC on private leaderboard (AUROC is generally the best metric to use when there is huge class imbalance) .
 
+## <a name="conclusion"></a> Conclusion
+
+Although I could not participate in the actual competition , I was able to reach within 1% of Kaggle Leaderboard with the above approach . I have not stated the whole EDA nor the feature engineering part in this blog. Only the important parts are mentioned. To reach within top 1%, a few more bits are needed. I would recommend you to try the above approaches and feel free to contact me for any queries. To end with , I would like to state that you could always use **Label Encoding** to gain better scores.
