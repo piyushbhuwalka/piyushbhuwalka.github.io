@@ -3,11 +3,11 @@ layout: post
 title: Kaggle Competition Writeup - IEEE CIS Fraud Detection
 description: "This is a write-up of a presentation on generating music in the waveform domain, which was part of a tutorial that I co-presented at ISMIR 2019 earlier this month."
 
-tags: [music, audio, waveform, raw audio, deep learning, generative models]
+tags: [machine learning, kaggle competition]
 
 image:
-  feature: musicbg2.jpg
-comments: true
+  feature: Blog-682X325-83.png
+comments: false
 share: true
 ---
 
