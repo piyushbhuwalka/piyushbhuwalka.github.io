@@ -15,7 +15,7 @@ During this period of lockdown I decided to attempt the IEEE CIS Fraud Detection
 
 ## <a name="overview"></a> Overview
 
-This blog post is divided into a few different sections. I'll try to motivate why modelling music in the waveform domain is an interesting problem. Then I'll give an overview of generative models, the various flavours that exist, and some important ways in which they differ from each other. In the next two sections I'll attempt to cover the state of the art in both likelihood-based and adversarial models of raw music audio. Finally, I'll raise some observations and discussion points. If you want to skip ahead, just click the section title below to go there.
+This blog post is divided into a few different sections. Finally, I'll raise some observations and discussion points. If you want to skip ahead, just click the section title below to go there.
 
 * *[Problem Statement](#motivation)*
 * *[Dataset](#dataset)*
@@ -23,7 +23,6 @@ This blog post is divided into a few different sections. I'll try to motivate wh
 * *[Feature Engineering](#feature-engineering)*
 * *[Validation Strategy](#validation-strategy)*
 * *[Models](#models)*
-* *[References](#references)*
 
 Note that this blog post is not intended to provide an exhaustive overview of all the published research in this domain -- I have tried to make a selection and I've inevitably left out some great work. **Please don't hesitate to suggest relevant work in the comments section!**
 
@@ -124,7 +123,7 @@ In this we sort the data by time. Then we divide it into say 5 parts. During 1st
 
 This was the validation strategy we mostly relied on . In this strategy , we grouped on months . Suppose we have months Dec 2012, Jan 2013, Feb 2013 as the only months . So in first fold we trained on Jan and Feb and validated on December. In second fold we trained on Feb and Dec and validated on January and so on . I received a lot of questions as to why I am validation on past using future data. The reason is that distribution of the features are not changing with time. So in a sense there is not any specific trend on time feature. This allowed us to validate effectively using this strategy.
 
-### <a name="models"></a> Models
+## <a name="models"></a> Models
 
-I used an ensemble of LightGBM , CatBoost and XGBoost. Although I could not participate in the actual competition , I was able to reach within 1% of Kaggle Leaderboard with the above approach . I would recommend you to try the above approaches and feel free to contact me for any queries. To end with , I would like to state that you could always use **Label Encoding** to gain better scores.
+I used an ensemble of LightGBM , CatBoost and XGBoost. Although I could not participate in the actual competition , I was able to reach within 1% of Kaggle Leaderboard with the above approach . I have not stated the whole EDA nor the feature engineering part in this blog. Only the important parts are mentioned. To reach within top 1%, a few more bits are needed. I would recommend you to try the above approaches and feel free to contact me for any queries. To end with , I would like to state that you could always use **Label Encoding** to gain better scores.
 
