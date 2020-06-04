@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Generating music in the waveform domain
+title: Kaggle Competition Writeup - IEEE CIS Fraud Detection
 description: "This is a write-up of a presentation on generating music in the waveform domain, which was part of a tutorial that I co-presented at ISMIR 2019 earlier this month."
 
 tags: [music, audio, waveform, raw audio, deep learning, generative models]
